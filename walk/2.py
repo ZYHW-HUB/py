@@ -1,0 +1,221 @@
+import os
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras import layers, models
+
+# 设置Cityscapes数据集路径
+CITYSCAPES_PATH = 'walk\\archive'
+
+# 验证路径和文件
+def verify_image_files(image_set='train'):
+    img_path = os.path.join(CITYSCAPES_PATH, image_set, 'img')
+    label_path = os.path.join(CITYSCAPES_PATH, image_set, 'label')
+    
+    if not os.path.exists(img_path):
+        print(f"Image path does not exist: {img_path}")
+        return False
+    
+    if not os.path.exists(label_path):
+        print(f"Label path does not exist: {label_path}")
+        return False
+    
+    img_files = os.listdir(img_path)
+    label_files = os.listdir(label_path)
+    
+    if not img_files:
+        print(f"No image files found in directory: {img_path}")
+        return False
+    
+    if not label_files:
+        print(f"No label files found in directory: {label_path}")
+        return False
+    
+    for img_file, label_file in zip(img_files, label_files):
+        if not img_file.lower().endswith('.png') or not label_file.lower().endswith('.png'):
+            print(f"File {img_file} or {label_file} is not a .png file")
+            continue
+        
+        img = cv2.imread(os.path.join(img_path, img_file))
+        label = cv2.imread(os.path.join(label_path, label_file))
+        
+        if img is None:
+            print(f"Error reading image {img_file}")
+            continue
+        
+        if label is None:
+            print(f"Error reading label {label_file}")
+            continue
+        
+        print(f"Successfully read image {img_file} and label {label_file}")
+    
+    return True
+
+# 验证训练集路径和文件
+if not verify_image_files('train'):
+    print("Training data verification failed. Please check the data path and format.")
+
+# 验证验证集路径和文件
+if not verify_image_files('val'):
+    print("Validation data verification failed. Please check the data path and format.")
+
+# 加载图像和标签
+def load_cityscapes_data(image_set='train'):
+    images = []
+    labels = []
+    img_path = os.path.join(CITYSCAPES_PATH, image_set, 'img')
+    label_path = os.path.join(CITYSCAPES_PATH, image_set, 'label')
+    
+    img_files = os.listdir(img_path)
+    label_files = os.listdir(label_path)
+    
+    for img_file, label_file in zip(img_files, label_files):
+        if not img_file.lower().endswith('.png') or not label_file.lower().endswith('.png'):
+            continue
+        
+        # img = cv2.imread(os.path.join(img_path, img_file))
+        # label = cv2.imread(os.path.join(label_path, label_file))
+        
+        img = cv2.imread(os.path.join(img_path, img_file))
+        label = cv2.imread(os.path.join(label_path, label_file), cv2.IMREAD_GRAYSCALE)
+        
+        if img is None or label is None:
+            print(f"Error reading image {img_file} or label {label_file}")
+            continue
+        
+        images.append(img)
+        labels.append(label)
+    
+    return np.array(images), np.array(labels)
+
+# 加载训练数据
+train_images, train_labels = load_cityscapes_data('train')
+print(train_images)
+print(train_labels)
+
+# 加载验证数据
+val_images, val_labels = load_cityscapes_data('val')
+
+# 显示示例图像
+def display_images(original, label):
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 2, 1)
+    plt.title('Original Image')
+    plt.imshow(cv2.cvtColor(original, cv2.COLOR_BGR2RGB))
+    plt.subplot(1, 2, 2)
+    plt.title('Label Image')
+    plt.imshow(cv2.cvtColor(label, cv2.COLOR_BGR2RGB))
+    plt.show()
+
+# 显示一个示例
+if len(train_images) > 0:
+    display_images(train_images[0], train_labels[0])
+else:
+    print("No training images loaded.")
+# 正则化图像数据
+train_images = train_images / 255.0
+val_images = val_images / 255.0
+
+# 将标签转换为整数类型
+train_labels = train_labels.astype(np.int32)
+val_labels = val_labels.astype(np.int32)
+# 构建DeepLabV3+模型
+def DeepLabV3Plus(input_shape, num_classes):
+    base_model = tf.keras.applications.ResNet50(weights='imagenet', include_top=False, input_shape=input_shape)
+
+    # Atrous Spatial Pyramid Pooling
+    b4 = layers.GlobalAveragePooling2D()(base_model.output)
+    b4 = layers.Reshape((1, 1, b4.shape[-1]))(b4)
+    b4 = layers.Conv2D(256, (1, 1), padding='same')(b4)
+    b4 = layers.BatchNormalization()(b4)
+    b4 = layers.ReLU()(b4)
+    b4 = layers.UpSampling2D(size=(input_shape[0] // 32, input_shape[1] // 32), interpolation='bilinear')(b4)
+
+    b0 = layers.Conv2D(256, (1, 1), padding='same')(base_model.output)
+    b0 = layers.BatchNormalization()(b0)
+    b0 = layers.ReLU()(b0)
+
+    b1 = layers.Conv2D(256, (3, 3), padding='same', dilation_rate=6)(base_model.output)
+    b1 = layers.BatchNormalization()(b1)
+    b1 = layers.ReLU()(b1)
+
+    b2 = layers.Conv2D(256, (3, 3), padding='same', dilation_rate=12)(base_model.output)
+    b2 = layers.BatchNormalization()(b2)
+    b2 = layers.ReLU()(b2)
+
+    b3 = layers.Conv2D(256, (3, 3), padding='same', dilation_rate=18)(base_model.output)
+    b3 = layers.BatchNormalization()(b3)
+    b3 = layers.ReLU()(b3)
+
+    x = layers.Concatenate()([b4, b0, b1, b2, b3])
+    x = layers.Conv2D(256, (1, 1), padding='same')(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.ReLU()(x)
+    x = layers.UpSampling2D(size=(8, 8), interpolation='bilinear')(x)
+
+    low_level_feature = base_model.get_layer('conv2_block3_1_relu').output
+    low_level_feature = layers.Conv2D(48, (1, 1), padding='same')(low_level_feature)
+    low_level_feature = layers.BatchNormalization()(low_level_feature)
+    low_level_feature = layers.ReLU()(low_level_feature)
+    ##
+    low_level_feature = layers.UpSampling2D(size=(1,1), interpolation='bilinear')(low_level_feature)
+
+    x = layers.Concatenate()([x, low_level_feature])
+    x = layers.Conv2D(256, (3, 3), padding='same')(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.ReLU()(x)
+    x = layers.Conv2D(256, (3, 3), padding='same')(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.ReLU()(x)
+
+    x = layers.Conv2D(num_classes, (1, 1), padding='same')(x)
+    x = layers.UpSampling2D(size=(4, 4), interpolation='bilinear')(x)
+
+    return models.Model(inputs=base_model.input, outputs=x)
+
+# 确保 `input_shape` 是正确的
+input_shape = train_images.shape[1:]  # 形如 (height, width, channels)
+
+# 打印 `input_shape` 以确认
+print("Input shape:", input_shape)
+
+# 创建DeepLabV3+模型
+model = DeepLabV3Plus(input_shape=input_shape, num_classes=200)  # 假设有200个类别
+
+# 编译模型
+model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+
+# 训练模型
+zzhistory = model.fit(train_images, train_labels, validation_data=(val_images, val_labels), epochs=1, batch_size=16)
+
+# 绘制训练和验证的损失曲线
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.legend()
+plt.show()
+
+# 绘制训练和验证的准确率曲线
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.legend()
+plt.show()
+
+# 预测一个示例
+predicted_label = model.predict(np.expand_dims(val_images[0], axis=0))
+predicted_label = np.argmax(predicted_label, axis=-1)[0]
+
+# 显示原始图像、标签和预测结果
+def display_prediction(original, label, prediction):
+    plt.figure(figsize=(15, 5))
+    plt.subplot(1, 3, 1)
+    plt.title('Original Image')
+    plt.imshow(cv2.cvtColor(original, cv2.COLOR_BGR2RGB))
+    plt.subplot(1, 3, 2)
+    plt.title('Label Image')
+    plt.imshow(label)
+    plt.subplot(1, 3, 3)
+    plt.title('Prediction Image')
+    plt.imshow(prediction)
+    plt.show()
+
