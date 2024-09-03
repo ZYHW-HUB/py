@@ -28,9 +28,9 @@ import time
 
 if __name__ == "__main__":
     # NOTE! NOTE! change this to not overwrite all log data when you train the model:
-    model_id = "1"
+    model_id = "2"
 
-    num_epochs = 1000
+    num_epochs = 2
     batch_size = 3
     learning_rate = 0.0001
 

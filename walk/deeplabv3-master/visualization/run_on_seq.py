@@ -32,15 +32,17 @@ if __name__ =="__main__":
 
     network = DeepLabV3("eval_seq", project_dir="D:/py/walk/deeplabv3-master").cuda()
     # network.load_state_dict(torch.load("walk/deeplabv3-master/pretrained_models/model_13_2_2_2_epoch_580.pth"))
+    # network.load_state_dict(torch.load("walk/deeplabv3-master/training_logs/model_2/checkpoints/model_2_epoch_2.pth"))
     network.load_state_dict(torch.load("walk/deeplabv3-master/training_logs/model_1/checkpoints/model_1_epoch_256.pth"))
-
+   
     for sequence in ["00", "01", "02"]:
-        print (sequence)
+        # print (sequence)
 
         val_dataset = DatasetSeq(cityscapes_data_path="walk",
                                 cityscapes_meta_path="walk/meta",
-                                sequence=sequence)
-
+                                sequence=sequence)#要在指定位置放上要测试的图片
+        # print(val_dataset)
+        
         num_val_batches = int(len(val_dataset)/batch_size)
         print ("num_val_batches:", num_val_batches)
 
@@ -81,16 +83,16 @@ if __name__ =="__main__":
 
                     img_h = overlayed_img.shape[0]
                     img_w = overlayed_img.shape[1]
-                    print(img_h)
-                    print(img_w)
+                    # print(img_h)
+                    # print(img_w)
 
                     cv2.imwrite(network.model_dir + "/" + img_id + ".png", img)
                     cv2.imwrite(network.model_dir + "/" + img_id + "_pred.png", pred_label_img_color)
                     cv2.imwrite(network.model_dir + "/" + img_id + "_overlayed.png", overlayed_img)
 
                     unsorted_img_ids.append(img_id)
-        print(img_h)
-        print(img_w)
+        # print(img_h)
+        # print(img_w)
         ############################################################################
         # create visualization video:
         ############################################################################
