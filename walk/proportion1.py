@@ -2,8 +2,9 @@ import cv2
 import numpy as np
 from collections import defaultdict
 import os, glob, sys
-
-# 定义类别颜色映射
+import csv
+from pathlib import Path
+# 定义类别颜色映射[b,g,r]
 color_map = {
     0: [128, 64, 128],       # 路面
     1: [244, 35, 232],       # 人行道
@@ -41,6 +42,10 @@ def count_categories(segmentation_image):
             for class_id, color in color_map.items():
                 if np.array_equal(pixel, color):
                     category_counts[class_id] += 1
+    # 确保所有类别都在字典中，即使它们的计数为 0
+    for class_id in color_map.keys():
+        if class_id not in category_counts:
+            category_counts[class_id] = 0
     
     return category_counts
 
@@ -78,21 +83,69 @@ def process_segmentation_images(image_paths):
 os.environ['IMAGES_DATASET'] ='D:/py/walk/deeplabv3-master/training_logs/model_eval_seq'
 picturepath = os.environ['IMAGES_DATASET'] 
 # 示例图片路径列表
-searchimage = os.path.join(picturepath ,'*_pred.png')
-# image_paths = [
-#     'walk/deeplabv3-master/training_logs/model_eval_seq/berlin_000000_000019_pred.png',
-# ]
+# searchimage = os.path.join(picturepath ,'*_pred.png')
+image_paths = [
+    'walk/deeplabv3-master/training_logs/model_eval_seq/berlin_000000_000019_pred.png',
+]
 
 # search files
-image_paths = glob.glob(searchimage)
-image_paths.sort()
+# image_paths = glob.glob(searchimage)
+# image_paths.sort()
+# category_names = ["Road", "Sidewalk", "Building", "Wall", "Fence", "Pole", "Traffic Light", "Traffic Sign", "Vegetation", "Terrain", "Sky", "Person", "Rider", "Car", "Truck", "Bus", "Train", "Motorcycle", "Bicycle", "Other"]
 print(image_paths)
-
-# # 处理分割好的图片
+with open("walk/pp2_ss.csv", "w", newline="", encoding="utf-8-sig") as f:
+    writer = csv.writer(f)
+    writer.writerow(("image","Road", "Sidewalk", "Building", "Wall",
+                     "Fence", "Pole", "Traffic_Light", "Traffic_Sign", 
+                     "Vegetation", "Terrain", "Sky", "Person", "Rider", 
+                     "Car", "Truck", "Bus", "Train", "Motorcycle", "Bicycle"
+                     , "Other"))
+# 处理分割好的图片
 # results = process_segmentation_images(image_paths)
+for path in image_paths:
+    # 创建Path对象
+    path_object = Path(path)
 
+    # 获取文件名
+    image_name = path_object.name[:-9]
+    print(image_name)
+    # 读取图像
+    segmentation_image = cv2.imread(path)
+    
+    # 统计每个类别的像素数量
+    category_counts = count_categories(segmentation_image)
+    
+    # 计算总面积
+    total_pixels = segmentation_image.shape[0] * segmentation_image.shape[1]
+    
+    # 计算类别占比
+    category_percentages = calculate_category_percentages(category_counts, total_pixels)
+    print(category_percentages)
+    with open("walk/pp2_ss.csv", "a", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow((image_name,category_percentages[0], category_percentages[1], category_percentages[2], category_percentages[3],
+                        category_percentages[4], category_percentages[5], category_percentages[6], category_percentages[7],
+                        category_percentages[8], category_percentages[9], category_percentages[10], category_percentages[11],
+                        category_percentages[12], category_percentages[13], category_percentages[14], category_percentages[15],
+                        category_percentages[16], category_percentages[17], category_percentages[18], category_percentages[19]))
 # # 输出结果
 # for result in results:
+#     from pathlib import Path
+
+#     # 定义文件路径
+#     file_path = '/py/walk/deeplabv3-master/training_logs/model_eval_seq\\berlin_000000_000019_pred.png'
+
+#     # 创建Path对象
+#     path_object = Path(file_path)
+
+#     # 获取文件名
+#     file_name = path_object.name
+
+#     print("文件名:", file_name)
+#     print(result)
 #     print(f"Image Path: {result['path']}")
 #     print(f"Category Counts: {result['category_counts']}")
 #     print(f"Category Percentages: {result['category_percentages']}\n")
+
+         
+#     with open("walk/pp2_ss.csv", "w"|"a"|"r+", newline="", encoding="utf-8-sig") as f:
