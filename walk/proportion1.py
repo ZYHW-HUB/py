@@ -4,6 +4,7 @@ from collections import defaultdict
 import os, glob, sys
 import csv
 from pathlib import Path
+import pymysql
 # 定义类别颜色映射[b,g,r]
 color_map = {
     0: [128, 64, 128],       # 路面
@@ -83,14 +84,14 @@ def process_segmentation_images(image_paths):
 os.environ['IMAGES_DATASET'] ='D:/py/walk/deeplabv3-master/training_logs/model_eval_seq'
 picturepath = os.environ['IMAGES_DATASET'] 
 # 示例图片路径列表
-# searchimage = os.path.join(picturepath ,'*_pred.png')
-image_paths = [
-    'walk/deeplabv3-master/training_logs/model_eval_seq/berlin_000000_000019_pred.png',
-]
+searchimage = os.path.join(picturepath ,'*_pred.png')
+# image_paths = [
+#     'walk/deeplabv3-master/training_logs/model_eval_seq/berlin_000000_000019_pred.png',
+# ]
 
 # search files
-# image_paths = glob.glob(searchimage)
-# image_paths.sort()
+image_paths = glob.glob(searchimage)
+image_paths.sort()
 # category_names = ["Road", "Sidewalk", "Building", "Wall", "Fence", "Pole", "Traffic Light", "Traffic Sign", "Vegetation", "Terrain", "Sky", "Person", "Rider", "Car", "Truck", "Bus", "Train", "Motorcycle", "Bicycle", "Other"]
 print(image_paths)
 with open("walk/pp2_ss.csv", "w", newline="", encoding="utf-8-sig") as f:
@@ -102,15 +103,26 @@ with open("walk/pp2_ss.csv", "w", newline="", encoding="utf-8-sig") as f:
                      , "Other"))
 # 处理分割好的图片
 # results = process_segmentation_images(image_paths)
-for path in image_paths:
+conn = pymysql.Connect(
+    host='localhost',
+    port=3306,
+    user='root',
+    passwd='123',
+    db='scene',
+    charset='utf8'
+)
+cur = conn.cursor()
+print(len(image_paths))
+for i in range(len(image_paths)):
+    print(i)
     # 创建Path对象
-    path_object = Path(path)
+    path_object = Path(image_paths[i])
 
     # 获取文件名
     image_name = path_object.name[:-9]
     print(image_name)
     # 读取图像
-    segmentation_image = cv2.imread(path)
+    segmentation_image = cv2.imread(image_paths[i])
     
     # 统计每个类别的像素数量
     category_counts = count_categories(segmentation_image)
@@ -120,7 +132,7 @@ for path in image_paths:
     
     # 计算类别占比
     category_percentages = calculate_category_percentages(category_counts, total_pixels)
-    print(category_percentages)
+    # print(category_counts[8])
     with open("walk/pp2_ss.csv", "a", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f)
         writer.writerow((image_name,category_percentages[0], category_percentages[1], category_percentages[2], category_percentages[3],
@@ -128,6 +140,20 @@ for path in image_paths:
                         category_percentages[8], category_percentages[9], category_percentages[10], category_percentages[11],
                         category_percentages[12], category_percentages[13], category_percentages[14], category_percentages[15],
                         category_percentages[16], category_percentages[17], category_percentages[18], category_percentages[19]))
+    sql = 'insert into pp2_ss(image,Road, Sidewalk, Building, Wall,Fence, Pole, Traffic_Light, Traffic_Sign, Vegetation, Terrain, Sky, Person, Rider, Car, Truck, Bus, Train, Motorcycle, Bicycle, Other) values("{}",{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{})'.format(
+                        image_name,category_percentages[0], category_percentages[1], category_percentages[2], category_percentages[3],
+                        category_percentages[4], category_percentages[5], category_percentages[6], category_percentages[7],
+                        category_percentages[8], category_percentages[9], category_percentages[10], category_percentages[11],
+                        category_percentages[12], category_percentages[13], category_percentages[14], category_percentages[15],
+                        category_percentages[16], category_percentages[17], category_percentages[18], category_percentages[19])
+    print(sql)
+    # 执行
+    cur.execute(sql)
+    # 提交
+    conn.commit()
+# 数据库连接中断
+cur.close()
+conn.close()
 # # 输出结果
 # for result in results:
 #     from pathlib import Path
