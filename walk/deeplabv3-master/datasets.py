@@ -212,12 +212,129 @@ class DatasetVal(torch.utils.data.Dataset):
     def __len__(self):
         return self.num_examples
 
+# class DatasetSeq(torch.utils.data.Dataset):
+#     def __init__(self, cityscapes_data_path, cityscapes_meta_path, sequence):
+#         self.img_dir = cityscapes_data_path + "/leftImg8bit/demoVideo/stuttgart_" + sequence + "/"
+
+#         self.img_h = 1024
+#         self.img_w = 2048
+
+#         self.new_img_h = 512
+#         self.new_img_w = 1024
+
+#         self.examples = []
+
+#         file_names = os.listdir(self.img_dir)
+#         for file_name in file_names:
+#             img_id = file_name.split("_leftImg8bit.png")[0]
+
+#             img_path = self.img_dir + file_name
+
+#             example = {}
+#             example["img_path"] = img_path
+#             example["img_id"] = img_id
+#             self.examples.append(example)
+
+#         self.num_examples = len(self.examples)
+
+#     def __getitem__(self, index):
+#         example = self.examples[index]
+
+#         img_id = example["img_id"]
+
+#         img_path = example["img_path"]
+#         img = cv2.imread(img_path, -1) # (shape: (1024, 2048, 3))
+#         # resize img without interpolation:
+#         img = cv2.resize(img, (self.new_img_w, self.new_img_h),
+#                          interpolation=cv2.INTER_NEAREST) # (shape: (512, 1024, 3))
+
+#         # normalize the img (with the mean and std for the pretrained ResNet):
+#         img = img/255.0
+#         img = img - np.array([0.485, 0.456, 0.406])
+#         img = img/np.array([0.229, 0.224, 0.225]) # (shape: (512, 1024, 3))
+#         img = np.transpose(img, (2, 0, 1)) # (shape: (3, 512, 1024))
+#         img = img.astype(np.float32)
+
+#         # convert numpy -> torch:
+#         img = torch.from_numpy(img) # (shape: (3, 512, 1024))
+
+#         return (img, img_id)
+
+#     def __len__(self):
+#         return self.num_examples
+
+
+# class DatasetSeq(torch.utils.data.Dataset):
+#     def __init__(self, cityscapes_data_path, cityscapes_meta_path, sequence):
+#         self.img_dir = cityscapes_data_path + "/leftImg8bit/demoVideo/stuttgart_" + sequence + "/"
+
+#         self.img_h = 300
+#         self.img_w = 400
+
+#         self.new_img_h = 512
+#         self.new_img_w = 1024
+
+#         self.examples = []
+
+#         file_names = os.listdir(self.img_dir)
+#         for file_name in file_names:
+#             img_id = file_name.split("_leftImg8bit.png")[0]
+
+#             img_path = self.img_dir + file_name
+
+#             example = {}
+#             example["img_path"] = img_path
+#             example["img_id"] = img_id
+#             self.examples.append(example)
+
+#         self.num_examples = len(self.examples)
+
+#     def __getitem__(self, index):
+#         example = self.examples[index]
+
+#         img_id = example["img_id"]
+
+#         img_path = example["img_path"]
+#         img = cv2.imread(img_path, -1)  # (shape: (300, 400, 3))
+
+#         # Calculate the scaling factor while maintaining aspect ratio
+#         original_height, original_width = img.shape[:2]
+#         scale_factor = min(self.new_img_w / original_width, self.new_img_h / original_height)
+#         new_width = int(original_width * scale_factor)
+#         new_height = int(original_height * scale_factor)
+
+#         # Resize the image while maintaining aspect ratio
+#         img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+
+#         # Pad the image to the desired size
+#         pad_left = (self.new_img_w - new_width) // 2
+#         pad_right = self.new_img_w - new_width - pad_left
+#         pad_top = (self.new_img_h - new_height) // 2
+#         pad_bottom = self.new_img_h - new_height - pad_top
+#         img = cv2.copyMakeBorder(img, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+
+#         # Normalize the img (with the mean and std for the pretrained ResNet):
+#         img = img / 255.0
+#         img = img - np.array([0.485, 0.456, 0.406])
+#         img = img / np.array([0.229, 0.224, 0.225])  # (shape: (512, 1024, 3))
+#         img = np.transpose(img, (2, 0, 1))  # (shape: (3, 512, 1024))
+#         img = img.astype(np.float32)
+
+#         # Convert numpy -> torch:
+#         img = torch.from_numpy(img)  # (shape: (3, 512, 1024))
+
+#         return (img, img_id)
+
+#     def __len__(self):
+#         return self.num_examples
+    
 class DatasetSeq(torch.utils.data.Dataset):
     def __init__(self, cityscapes_data_path, cityscapes_meta_path, sequence):
         self.img_dir = cityscapes_data_path + "/leftImg8bit/demoVideo/stuttgart_" + sequence + "/"
+        # self.output_dir = cityscapes_data_path + "/leftImg8bit/demoVideo/" + sequence + "/"  # 新增参数，用于保存处理后的图像
 
-        self.img_h = 1024
-        self.img_w = 2048
+        self.img_h = 300
+        self.img_w = 400
 
         self.new_img_h = 512
         self.new_img_w = 1024
@@ -241,28 +358,54 @@ class DatasetSeq(torch.utils.data.Dataset):
         example = self.examples[index]
 
         img_id = example["img_id"]
-
         img_path = example["img_path"]
-        img = cv2.imread(img_path, -1) # (shape: (1024, 2048, 3))
-        # resize img without interpolation:
-        img = cv2.resize(img, (self.new_img_w, self.new_img_h),
-                         interpolation=cv2.INTER_NEAREST) # (shape: (512, 1024, 3))
+        img = cv2.imread(img_path, -1)  # (shape: (300, 400, 3))
+        
+        original_height, original_width = img.shape[:2]
+        
+        # Calculate the scaling factor while maintaining aspect ratio
 
-        # normalize the img (with the mean and std for the pretrained ResNet):
-        img = img/255.0
+        scale_factor = min(self.new_img_w / original_width, self.new_img_h / original_height)
+        new_width = int(original_width * scale_factor)
+        new_height = int(original_height * scale_factor)
+
+        # Resize the image while maintaining aspect ratio
+        img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+
+        # Pad the image to the desired size and record padding information
+        pad_left = (self.new_img_w - new_width) // 2
+        pad_right = self.new_img_w - new_width - pad_left
+        pad_top = (self.new_img_h - new_height) // 2
+        pad_bottom = self.new_img_h - new_height - pad_top
+        img = cv2.copyMakeBorder(img, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+
+        # Save the processed image if output_dir is provided
+        # if self.output_dir is not None:
+        #     output_path = os.path.join(self.output_dir, f"{img_id}_processed.png")
+        #     cv2.imwrite(output_path, img)
+
+        # Normalize the img (with the mean and std for the pretrained ResNet):
+        img = img / 255.0
         img = img - np.array([0.485, 0.456, 0.406])
-        img = img/np.array([0.229, 0.224, 0.225]) # (shape: (512, 1024, 3))
-        img = np.transpose(img, (2, 0, 1)) # (shape: (3, 512, 1024))
+        img = img / np.array([0.229, 0.224, 0.225])  # (shape: (512, 1024, 3))
+        img = np.transpose(img, (2, 0, 1))  # (shape: (3, 512, 1024))
         img = img.astype(np.float32)
 
-        # convert numpy -> torch:
-        img = torch.from_numpy(img) # (shape: (3, 512, 1024))
+        # Convert numpy -> torch:
+        img = torch.from_numpy(img)  # (shape: (3, 512, 1024))
 
-        return (img, img_id)
+        # Return padding information along with the image
+        return (img, img_id, {
+            "pad_left": pad_left,
+            "pad_right": pad_right,
+            "pad_top": pad_top,
+            "pad_bottom": pad_bottom,
+            "original_width": new_width,  # 使用缩放后的宽度
+            "original_height": new_height  # 使用缩放后的高度
+        })
 
     def __len__(self):
         return self.num_examples
-
 class DatasetThnSeq(torch.utils.data.Dataset):
     def __init__(self, thn_data_path):
         self.img_dir = thn_data_path + "/"

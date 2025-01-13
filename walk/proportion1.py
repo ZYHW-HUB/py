@@ -56,30 +56,30 @@ def calculate_category_percentages(category_counts, total_pixels):
         percentages[category] = (count / total_pixels) * 100
     return percentages
 
-def process_segmentation_images(image_paths):
-    results = []
+# def process_segmentation_images(image_paths):
+#     results = []
     
-    for path in image_paths:
-        # 读取图像
-        segmentation_image = cv2.imread(path)
+#     for path in image_paths:
+#         # 读取图像
+#         segmentation_image = cv2.imread(path)
         
-        # 统计每个类别的像素数量
-        category_counts = count_categories(segmentation_image)
+#         # 统计每个类别的像素数量
+#         category_counts = count_categories(segmentation_image)
         
-        # 计算总面积
-        total_pixels = segmentation_image.shape[0] * segmentation_image.shape[1]
+#         # 计算总面积
+#         total_pixels = segmentation_image.shape[0] * segmentation_image.shape[1]
         
-        # 计算类别占比
-        category_percentages = calculate_category_percentages(category_counts, total_pixels)
+#         # 计算类别占比
+#         category_percentages = calculate_category_percentages(category_counts, total_pixels)
         
-        # 存储结果
-        results.append({
-            'path': path,
-            'category_counts': category_counts,
-            'category_percentages': category_percentages
-        })
+#         # 存储结果
+#         results.append({
+#             'path': path,
+#             'category_counts': category_counts,
+#             'category_percentages': category_percentages
+#         })
     
-    return results
+#     return results
 
 os.environ['IMAGES_DATASET'] ='D:/py/walk/deeplabv3-master/training_logs/model_eval_seq'
 picturepath = os.environ['IMAGES_DATASET'] 
