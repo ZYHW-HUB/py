@@ -5,6 +5,32 @@ import os, glob, sys
 import csv
 from pathlib import Path
 import pymysql
+
+# 检查点文件
+checkpoint_file = 'py/walk/proportion/proportion_checkpoint.txt'
+
+def load_checkpoint():
+    if os.path.exists(checkpoint_file):
+        with open(checkpoint_file, 'r') as f:
+            return int(f.read().strip())
+    return 0
+
+def save_checkpoint(index):
+    with open(checkpoint_file, 'w') as f:
+        f.write(str(index))
+if __name__ == "__main__":
+    # 打印检查点文件的位置
+    print(f"Checkpoint file location: {os.path.abspath(checkpoint_file)}")
+
+    # 检查检查点文件是否存在
+    if os.path.exists(checkpoint_file):
+        print("Checkpoint file exists.")
+    else:
+        print("Checkpoint file does not exist.")
+
+# 加载检查点
+current_image_index = load_checkpoint()
+            
 # 定义类别颜色映射[b,g,r]
 color_map = {
     0: [128, 64, 128],       # 路面
@@ -93,7 +119,7 @@ searchimage = os.path.join(picturepath ,'*_pred.png')
 image_paths = glob.glob(searchimage)
 image_paths.sort()
 # category_names = ["Road", "Sidewalk", "Building", "Wall", "Fence", "Pole", "Traffic Light", "Traffic Sign", "Vegetation", "Terrain", "Sky", "Person", "Rider", "Car", "Truck", "Bus", "Train", "Motorcycle", "Bicycle", "Other"]
-print(image_paths)
+# print(image_paths)
 with open("walk/pp2_ss.csv", "w", newline="", encoding="utf-8-sig") as f:
     writer = csv.writer(f)
     writer.writerow(("image","Road", "Sidewalk", "Building", "Wall",
@@ -115,12 +141,15 @@ cur = conn.cursor()
 print(len(image_paths))
 for i in range(len(image_paths)):
     print(i)
+    if current_image_index >= i + 1:
+        continue
     # 创建Path对象
     path_object = Path(image_paths[i])
 
     # 获取文件名
     image_name = path_object.name[:-9]
     print(image_name)
+
     # 读取图像
     segmentation_image = cv2.imread(image_paths[i])
     
@@ -151,9 +180,13 @@ for i in range(len(image_paths)):
     cur.execute(sql)
     # 提交
     conn.commit()
+    current_image_index += 1
+    print(current_image_index)
+    save_checkpoint(current_image_index)  # 更新检查点
 # 数据库连接中断
 cur.close()
 conn.close()
+
 # # 输出结果
 # for result in results:
 #     from pathlib import Path
