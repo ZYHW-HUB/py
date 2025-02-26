@@ -1,41 +1,66 @@
-import pymysql
-import pandas as pd
+# 只选择 category 为 "safety" 的数据
+df_safety = df[df['category'] == 'safety']
+# 特征列 (X)
+X_safety = df_safety[['Road_left', 'Sidewalk_left', 'Building_left', 'Wall_left', 'Fence_left', 'Pole_left', 
+                      'Traffic_Light_left', 'Traffic_Sign_left', 'Vegetation_left', 'Terrain_left', 'Sky_left', 
+                      'Person_left', 'Rider_left', 'Car_left', 'Truck_left', 'Bus_left', 'Train_left', 
+                      'Motorcycle_left', 'Bicycle_left', 'Other_left', 'Road_right', 'Sidewalk_right', 
+                      'Building_right', 'Wall_right', 'Fence_right', 'Pole_right', 'Traffic_Light_right', 
+                      'Traffic_Sign_right', 'Vegetation_right', 'Terrain_right', 'Sky_right', 'Person_right', 
+                      'Rider_right', 'Car_right', 'Truck_right', 'Bus_right', 'Train_right', 'Motorcycle_right', 
+                      'Bicycle_right', 'Other_right']]
 
-# 连接到MySQL数据库
-conn = pymysql.Connect(
-    host='localhost',  # 数据库主机地址
-    port=3306,         # 数据库端口
-    user='root',       # 数据库用户名
-    passwd='123',      # 数据库密码
-    db='scene',        # 数据库名称
-    charset='utf8'     # 数据库字符集
-)
+# 标签列 (y)
+y_safety = df_safety[['winner_left', 'winner_right', 'winner_equal']]  # 目标变量
+from sklearn.model_selection import train_test_split
 
-# 创建游标对象，用于执行SQL查询
-cursor = conn.cursor()
+# 划分训练集和测试集
+X_train, X_test, y_train, y_test = train_test_split(X_safety, y_safety, test_size=0.2, random_state=42)
+import tensorflow as tf
 
-# 查询数据库中的景物比例数据
-query = """
-SELECT image, Road, Sidewalk, Building, Wall, Fence, Pole, Traffic_Light, Traffic_Sign, 
-       Vegetation, Terrain, Sky, Person, Rider, Car, Truck, Bus, Train, Motorcycle, Bicycle, Other
-FROM pp2_ss;
-"""
+# 建立神经网络模型
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(64, activation='relu', input_dim=X_train.shape[1]),  # 输入层
+    tf.keras.layers.Dense(64, activation='relu'),  # 隐藏层
+    tf.keras.layers.Dense(y_train.shape[1], activation='sigmoid')  # 输出层，对应三个目标：winner_left, winner_right, winner_equal
+])
 
-# 执行查询
-cursor.execute(query)
+# 编译模型
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
-# 获取所有查询结果
-data = cursor.fetchall()
+# 训练模型
+history = model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_test, y_test))
 
-# 关闭游标和连接
-cursor.close()
-conn.close()
+# 评估模型
+loss, accuracy = model.evaluate(X_test, y_test)
+print(f"Test loss: {loss}, Test accuracy: {accuracy}")
 
-# 将查询结果转换为DataFrame
-df = pd.DataFrame(data, columns=["image", "Road", "Sidewalk", "Building", "Wall", "Fence", "Pole", 
-                                 "Traffic_Light", "Traffic_Sign", "Vegetation", "Terrain", "Sky", 
-                                 "Person", "Rider", "Car", "Truck", "Bus", "Train", "Motorcycle", 
-                                 "Bicycle", "Other"])
+import matplotlib.pyplot as plt
 
-# 查看前几行数据
-print(df.head())
+# 绘制训练损失和准确率
+plt.figure(figsize=(12, 6))
+
+# 绘制训练和验证的损失
+plt.subplot(1, 2, 1)
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title('Training and Validation Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+
+# 绘制训练和验证的准确率
+plt.subplot(1, 2, 2)
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Training and Validation Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+
+plt.show()
+# 预测新的数据
+predictions = model.predict(X_test)
+
+# 打印预测结果
+print(predictions)

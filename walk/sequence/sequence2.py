@@ -1,112 +1,79 @@
 import pymysql
 import pandas as pd
-import numpy as np
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+
 # 连接到MySQL数据库
-conn = pymysql.Connect(
+conn = pymysql.connect(
     host='localhost',
     port=3306,
     user='root',
-    passwd='123',
-    db='scene',
+    password='123',
+    database='scene',
     charset='utf8mb4'  # 使用 utf8mb4，适应更广泛的字符编码
 )
 
-# 创建游标对象，用于执行SQL查询
 cursor = conn.cursor()
 
-# 查询 `pp2` 表中的比较数据
-query_comparisons = """
-SELECT left_id, right_id, winner, left_lat, left_long, right_lat, right_long
-FROM pp2
-WHERE category='safety';
+# 查询 'category' 为 'safety' 的数据
+query = """
+SELECT * FROM pp2_combined WHERE category = 'safety';
 """
-cursor.execute(query_comparisons)
+cursor.execute(query)
+results = cursor.fetchall()
 
-# 获取所有查询结果
-comparisons_data = cursor.fetchall()
+# 将查询结果转换为DataFrame
+columns = [desc[0] for desc in cursor.description]
+df = pd.DataFrame(results, columns=columns)
 
-# 关闭游标和连接
+# 关闭数据库连接
 cursor.close()
 conn.close()
 
-# 将比较数据转换为DataFrame
-df_comparisons = pd.DataFrame(comparisons_data, columns=["left_id", "right_id", "winner", "left_lat", "left_long", 
-                                                         "right_lat", "right_long"])
-# 查看数据
-print("原始数据：")
-print(df_comparisons.head())
+# 数据预处理
+# 假设我们需要对 'winner' 列进行编码并准备特征和标签
+label_encoder = LabelEncoder()
 
-# 对 'winner' 列进行独热编码
-df_comparisons_encoded = pd.get_dummies(df_comparisons, columns=['winner'], drop_first=False)
+# 对 'winner' 进行标签编码
+df['winner_label_encoded'] = label_encoder.fit_transform(df['winner'])
 
-# 查看独热编码后的数据
-print("\n独热编码后的数据：")
-print(df_comparisons_encoded.head())
+# 特征选择：假设我们选择所有与道路、建筑相关的列作为特征
+features = ['Road_left', 'Sidewalk_left', 'Building_left', 'Wall_left', 'Fence_left',
+            'Pole_left', 'Traffic_Light_left', 'Traffic_Sign_left', 'Vegetation_left', 'Terrain_left',
+            'Sky_left', 'Person_left', 'Rider_left', 'Car_left', 'Truck_left', 'Bus_left', 
+            'Train_left', 'Motorcycle_left', 'Bicycle_left', 'Other_left', 
+            'Road_right', 'Sidewalk_right', 'Building_right', 'Wall_right', 'Fence_right', 
+            'Pole_right', 'Traffic_Light_right', 'Traffic_Sign_right', 'Vegetation_right', 'Terrain_right',
+            'Sky_right', 'Person_right', 'Rider_right', 'Car_right', 'Truck_right', 'Bus_right', 
+            'Train_right', 'Motorcycle_right', 'Bicycle_right', 'Other_right']
 
-# 查看数据
-print(df_comparisons.head())
-# 连接到MySQL数据库以获取景物比例数据
-conn = pymysql.Connect(
-    host='localhost',
-    port=3306,
-    user='root',
-    passwd='123',
-    db='scene',
-    charset='utf8mb4'
-)
+# 提取特征数据和目标标签
+X = df[features]
+y = df['winner_label_encoded']
 
-# 创建游标对象，用于执行SQL查询
-cursor = conn.cursor()
+# 划分数据集为训练集和测试集
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# 查询 `pp2_ss` 表中的景物比例数据
-query_features = """
-SELECT image, Road, Sidewalk, Building, Wall, Fence, Pole, Traffic_Light, Traffic_Sign, 
-       Vegetation, Terrain, Sky, Person, Rider, Car, Truck, Bus, Train, Motorcycle, Bicycle, Other
-FROM pp2_ss;
-"""
-cursor.execute(query_features)
+# 可以在这里创建并训练你的模型，例如使用 TensorFlow 或其他机器学习库
+# 示例：训练一个简单的模型（以深度学习为例）
 
-# 获取所有查询结果
-features_data = cursor.fetchall()
 
-# 关闭游标和连接
-cursor.close()
-conn.close()
 
-# 将景物比例数据转换为DataFrame
-df_features = pd.DataFrame(features_data, columns=["image", "Road", "Sidewalk", "Building", "Wall", "Fence", "Pole", 
-                                                   "Traffic_Light", "Traffic_Sign", "Vegetation", "Terrain", "Sky", 
-                                                   "Person", "Rider", "Car", "Truck", "Bus", "Train", "Motorcycle", 
-                                                   "Bicycle", "Other"])
+# 构建一个简单的神经网络模型
+model = Sequential()
+model.add(Dense(128, input_dim=X_train.shape[1], activation='relu'))
+model.add(Dense(64, activation='relu'))
+model.add(Dense(32, activation='relu'))
+model.add(Dense(len(label_encoder.classes_), activation='softmax'))  # 输出层，数量与类别数量一致
 
-# 查看数据
-print(df_features.head())
-# 合并景物比例数据到比较数据中
-def get_image_features(image_id):
-    # 查找对应图片的特征
-    return df_features[df_features["image"] == image_id].drop(columns=["image"]).values[0]
+# 编译模型
+model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-# 创建训练数据
-X = []
-y = []
+# 训练模型
+model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_test, y_test))
 
-for idx, row in df_comparisons.iterrows():
-    features_A = get_image_features(row["left_id"])
-    features_B = get_image_features(row["right_id"])
-    
-    # 组合特征：将左边和右边的图片特征拼接
-    X.append(np.concatenate([features_A, features_B]))
-    
-    # 标签：'left' -> 1, 'right' -> 0, 'equal' -> 0.5
-    if row["winner"] == "left":
-        y.append(1)
-    elif row["winner"] == "right":
-        y.append(0)
-    else:  # 'equal'
-        y.append(0.5)
-
-X = np.array(X)
-y = np.array(y)
-
-# 查看样本数据
-print(X[:5], y[:5])
+# 评估模型
+loss, accuracy = model.evaluate(X_test, y_test)
+print(f"模型测试集准确率: {accuracy * 100:.2f}%")
