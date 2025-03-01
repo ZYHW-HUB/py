@@ -1,59 +1,91 @@
-import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 import pymysql
-from sklearn.preprocessing import LabelEncoder
+import pandas as pd
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
-def load_data_from_db(batch_size=1000, offset=0):
-    conn = pymysql.connect(
-        host='localhost',
-        port=3306,
-        user='root',
-        password='123',
-        database='scene',
-        charset='utf8mb4'
-    )
-    cursor = conn.cursor()
-    
-    # 查询数据库中的数据
-    query = f"""
-    SELECT left_id, right_id, winner_label_encoded, 
-           Road_left, Sidewalk_left, Building_left, Wall_left, Fence_left, 
-           Pole_left, Traffic_Light_left, Traffic_Sign_left, Vegetation_left, 
-           Terrain_left, Sky_left, Person_left, Rider_left, Car_left, Truck_left, 
-           Bus_left, Train_left, Motorcycle_left, Bicycle_left, Other_left,
-           Road_right, Sidewalk_right, Building_right, Wall_right, Fence_right, 
-           Pole_right, Traffic_Light_right, Traffic_Sign_right, Vegetation_right, 
-           Terrain_right, Sky_right, Person_right, Rider_right, Car_right, Truck_right, 
-           Bus_right, Train_right, Motorcycle_right, Bicycle_right, Other_right
-    FROM pp2_combined
-    LIMIT {batch_size} OFFSET {offset};
-    """
-    cursor.execute(query)
-    results = cursor.fetchall()
-    
-    conn.close()
-    
-    return results
+# 连接到 MySQL 数据库
+conn = pymysql.connect(
+    host='localhost',
+    port=3306,
+    user='root',
+    password='123',
+    database='scene',
+    charset='utf8mb4'  # 使用 utf8mb4，适应更广泛的字符编码
+)
 
-def preprocess_data(data):
-    left_features = []
-    right_features = []
-    labels = []
-    
-    for row in data:
-        # 左侧特征：22个景物比例数据
-        left_feature = np.array(row[3:25])
-        # 右侧特征：22个景物比例数据
-        right_feature = np.array(row[25:47])
-        # 标签：winner_label_encoded（0 或 1）
-        label = row[2]
-        
-        left_features.append(left_feature)
-        right_features.append(right_feature)
-        labels.append(label)
-    
-    # 转换为 NumPy 数组
-    left_features = np.array(left_features)
-    right_features = np.array(right_features)
-    labels = np.array(labels)
-    
-    return left_features, right_features, labels
+# 创建游标
+cursor = conn.cursor()
+
+# 查询需要的字段
+query = """
+SELECT 
+    Road_left, Sidewalk_left, Building_left, Wall_left, Fence_left, 
+    Pole_left, Traffic_Light_left, Traffic_Sign_left, Vegetation_left, 
+    Terrain_left, Sky_left, Person_left, Rider_left, Car_left, 
+    Truck_left, Bus_left, Train_left, Motorcycle_left, Bicycle_left, Other_left,
+    Road_right, Sidewalk_right, Building_right, Wall_right, Fence_right, 
+    Pole_right, Traffic_Light_right, Traffic_Sign_right, Vegetation_right, 
+    Terrain_right, Sky_right, Person_right, Rider_right, Car_right, 
+    Truck_right, Bus_right, Train_right, Motorcycle_right, Bicycle_right, Other_right,
+    winner_label_encoded
+FROM pp2_combined
+WHERE category = 'safety';
+"""
+
+# 执行查询并加载数据到 DataFrame
+cursor.execute(query)
+data = cursor.fetchall()
+
+# 获取列名
+columns = [
+    "Road_left", "Sidewalk_left", "Building_left", "Wall_left", "Fence_left", 
+    "Pole_left", "Traffic_Light_left", "Traffic_Sign_left", "Vegetation_left", 
+    "Terrain_left", "Sky_left", "Person_left", "Rider_left", "Car_left", 
+    "Truck_left", "Bus_left", "Train_left", "Motorcycle_left", "Bicycle_left", "Other_left",
+    "Road_right", "Sidewalk_right", "Building_right", "Wall_right", "Fence_right", 
+    "Pole_right", "Traffic_Light_right", "Traffic_Sign_right", "Vegetation_right", 
+    "Terrain_right", "Sky_right", "Person_right", "Rider_right", "Car_right", 
+    "Truck_right", "Bus_right", "Train_right", "Motorcycle_right", "Bicycle_right", "Other_right",
+    "winner_label_encoded"
+]
+
+# 将查询结果转换为 DataFrame
+df = pd.DataFrame(data, columns=columns)
+
+# 关闭游标和连接
+cursor.close()
+conn.close()
+
+# 特征和目标变量
+X = df.drop(columns=["winner_label_encoded"])
+y = df["winner_label_encoded"]
+
+# 数据标准化
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# 划分训练集和测试集
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+# 创建随机森林分类器
+rf_classifier = RandomForestClassifier(n_estimators=100, random_state=42)
+
+# 训练模型
+rf_classifier.fit(X_train, y_train)
+
+# 预测测试集
+y_pred = rf_classifier.predict(X_test)
+
+# 评估模型
+accuracy = accuracy_score(y_test, y_pred)
+print(f"Test Accuracy: {accuracy}")
+
+# 输出分类报告
+print("Classification Report:")
+print(classification_report(y_test, y_pred))
+
+# 输出混淆矩阵
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
