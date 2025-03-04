@@ -296,7 +296,7 @@ if __name__ == '__main__':
         train_scores = {}
 
         # 训练阶段
-        for i, (img_l, img_r, labels, ids_l, ids_r) in enumerate(tqdm(train_loader, desc=f"Epoch {epoch+1}")):
+        for i, (img_l, img_r, labels, ids_l, ids_r) in enumerate(tqdm(train_loader, desc=f"Epoch {epoch+1}")):  # 使用tqdm显示进度
             # 数据传输优化
             img_l = img_l.to(device, non_blocking=True, memory_format=torch.channels_last)
             img_r = img_r.to(device, non_blocking=True, memory_format=torch.channels_last)
@@ -309,13 +309,14 @@ if __name__ == '__main__':
 
                 # 新增准确率计算（训练阶段）
                 with torch.no_grad():
-                        preds = torch.where(out1 > out2, 1, -1)
-                        # === 修改开始 ===
-                        mask = labels != 0  # 排除平局样本
-                        correct = (preds.flatten()[mask] == labels[mask]).sum().item()
-                        running_correct += correct
-                        total_samples += mask.sum().item()  # 只统计有效样本
-                        # === 修改结束 ===
+                    preds = torch.where(out1 > out2, 1, -1)
+                    # 处理平局标签（统一转换为1）
+                    true_labels = labels.clone()
+                    true_labels[true_labels == 0] = 1  # 使用clone避免修改原始标签
+                    correct = (preds.flatten() == true_labels).sum().item()
+                    running_correct += correct
+                    total_samples += labels.size(0)
+
             # 反向传播
             if torch.cuda.is_available():
                 scaler.scale(loss).backward()
@@ -340,7 +341,7 @@ if __name__ == '__main__':
         val_scores = {}
         
         with torch.inference_mode(), autocast(enabled=torch.cuda.is_available()):
-            for img_l, img_r, labels, ids_l, ids_r in tqdm(val_loader, desc="Validation"):
+            for img_l, img_r, labels, ids_l, ids_r in tqdm(val_loader, desc="Validation"):  # 使用tqdm显示进度
                 img_l = img_l.to(device, non_blocking=True, memory_format=torch.channels_last)
                 img_r = img_r.to(device, non_blocking=True, memory_format=torch.channels_last)
                 labels = labels.to(device, non_blocking=True)
@@ -351,11 +352,11 @@ if __name__ == '__main__':
                 # 新增准确率计算（验证阶段）
                 with torch.no_grad():
                     preds = torch.where(out1 > out2, 1, -1)
-                    # === 修改开始 ===
-                    mask = labels != 0  # 排除平局样本
-                    val_correct += (preds.flatten()[mask] == labels[mask]).sum().item()
-                    val_total += mask.sum().item()  # 只统计有效样本
-                    # === 修改结束 ===
+                    # 保持与训练阶段相同的标签处理方式
+                    true_labels = labels.clone()
+                    true_labels[true_labels == 0] = 1  # 与训练一致
+                    val_correct += (preds.flatten() == true_labels).sum().item()
+                    val_total += labels.size(0)
 
                 # ... [分数记录代码不变] ...
 
