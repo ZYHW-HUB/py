@@ -13,7 +13,7 @@ conn = pymysql.connect(
 
 # 假设数据已加载到DataFrame中，包含景物比例和评分
 data = pd.read_sql("SELECT * FROM pp2_ss", con=conn)  # 假设你的景物比例数据表名是 pp2_ss
-scores = pd.read_sql("SELECT * FROM image_scores_safety", con=conn)  # 假设评分表为 image_scores_safety
+scores = pd.read_sql("SELECT image_id, score FROM image_scores WHERE split = 'train'", con=conn)  # 假设评分表为 image_scores_safety
 
 # 假设 'image_id' 作为主键，合并景物比例数据与评分数据
 merged_df = pd.merge(data, scores, left_on='image', right_on='image_id')

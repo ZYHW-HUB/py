@@ -13,7 +13,7 @@ if gpus:
 else:
     print("未检测到 GPU，使用 CPU")
 
-# 路径设置：语义分割结果图像所在目录和CSV标签文件
+# 路径设置：语义分割结果图像所在目录
 image_dir = "walk/deeplabv3-master/training_logs/model_eval_seq"  # 存放分割结果图像的目录
 
 # 连接到数据库并获取数据
