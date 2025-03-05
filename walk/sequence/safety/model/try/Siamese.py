@@ -208,7 +208,7 @@ def hardware_config():
 # --------------------------
 if __name__ == '__main__':
     # 新增日志目录配置
-    log_dir = "walk/deeplabv3-master/training_logs/siamese1"
+    log_dir = "walk/deeplabv3-master/training_logs/siamese4"
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, f"training_log_{datetime.now().strftime('%Y%m%d%H%M')}.csv")
     model_dir = os.path.join(log_dir, "saved_models")
@@ -267,11 +267,11 @@ if __name__ == '__main__':
 
     # 模型初始化
     model = SiameseNetwork().to(device, memory_format=torch.channels_last)
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = optim.Adam(model.parameters(), lr=1e-2)
     scaler = GradScaler(enabled=torch.cuda.is_available())
     scheduler = StepLR(optimizer, step_size=5, gamma=0.1)
-    model_save_path = "walk/deeplabv3-master/training_logs/siamese1/siamese_model.pth"
-    scores_save_path = "walk/deeplabv3-master/training_logs/siamese1/scores.json"
+    model_save_path = "walk/deeplabv3-master/training_logs/siamese4/siamese_model.pth"
+    scores_save_path = "walk/deeplabv3-master/training_logs/siamese4/scores.json"
     create_scores_table(db_config)
 
     # 数据库连接
@@ -284,7 +284,7 @@ if __name__ == '__main__':
 
     # 训练循环
     total_start = time.time()
-    for epoch in range(10):
+    for epoch in range(100):
         epoch_start = time.time()
         model.train()
         optimizer.zero_grad()
@@ -394,7 +394,7 @@ if __name__ == '__main__':
 
         # 输出统计信息（新增准确率显示）
         epoch_time = time.time() - epoch_start
-        print(f"Epoch {epoch+1}/10 | "
+        print(f"Epoch {epoch+1}/100 | "
               f"Train Loss: {running_loss/len(train_loader):.4f} | "
               f"Val Loss: {avg_val_loss:.4f} | "
               f"Train Acc: {train_acc:.2%} | "  # 新增
