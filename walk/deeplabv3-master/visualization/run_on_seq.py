@@ -26,7 +26,7 @@ sys.path.append("py/walk/deeplabv3-master/utils")
 from utils.utils import label_img_to_color
 
 # 检查点文件
-checkpoint_file = 'walk/deeplabv3-master/training_logs/model_eval_seq/checkpoints/checkpoint.txt'
+checkpoint_file = 'walk/deeplabv3-master/training_logs/model_eval_seq/checkpoints/checkpoint1.txt'
 
 def load_checkpoint():
     if os.path.exists(checkpoint_file):
@@ -39,8 +39,8 @@ def save_checkpoint(index):
         f.write(str(index))
 
 def clean_filename(filename):
-    # 使用正则表达式去除最后一个 .jpg
-    return re.sub(r'\.jpg$', '', filename)
+    # 使用正则表达式去除最后一个 .png
+    return re.sub(r'\.png$', '', filename)
 if __name__ == "__main__":
     # 打印检查点文件的位置
     print(f"Checkpoint file location: {os.path.abspath(checkpoint_file)}")
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     n = 0
     
     # for sequence in ["00", "01", "02"]:
-    for sequence in ["00"]:  # 只处理序列 "00"
+    for sequence in ["01"]:  # 只处理序列 "01"
         print(f"Processing sequence: {sequence}")
         
 
