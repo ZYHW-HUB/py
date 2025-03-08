@@ -25,55 +25,6 @@ import numpy as np
 use_preprocessed = False  # 关闭预处理
 # 原始图像目录（存放灰度图像或彩色图像，程序会转换为灰度）
 image_dir = "walk/deeplabv3-master/training_logs/model_eval_seq_pp2"
-# 预处理后标签保存目录（不使用时可以忽略）
-# label_dir = "walk/deeplabv3-master/training_logs/label_npy"
-
-# # --------------------------
-# # colormap 定义（预处理时用到，此处保留，实际读取灰度图不使用该映射）
-# # --------------------------
-# color_map = {
-#     0: [128, 64, 128],   # 路面
-#     1: [244, 35, 232],   # 人行道
-#     2: [70, 70, 70],     # 建筑物
-#     3: [102, 102, 156],  # 墙壁
-#     4: [190, 153, 153],  # 栅栏
-#     5: [153, 153, 153],  # 桩
-#     6: [250, 170, 30],   # 交通灯
-#     7: [220, 220, 0],    # 交通标志
-#     8: [107, 142, 35],   # 植被
-#     9: [152, 251, 152],  # 地形
-#     10: [70, 130, 180],  # 天空
-#     11: [220, 20, 60],   # 人
-#     12: [255, 0, 0],     # 骑行者
-#     13: [0, 0, 142],     # 汽车
-#     14: [0, 0, 70],      # 卡车
-#     15: [0, 60, 100],    # 巴士
-#     16: [0, 80, 100],    # 火车
-#     17: [0, 0, 230],     # 摩托车
-#     18: [119, 11, 32],   # 自行车
-#     19: [81, 0, 81]      # 其他
-# }
-
-# # --------------------------
-# # 自定义转换：RGB -> 语义标签（仅在不使用预处理时使用）另一种转换方式（没使用过）
-# # --------------------------
-# class ConvertToLabel(object):
-#     def __init__(self, color_map):
-#         self.color_map = color_map
-
-#     def __call__(self, image):
-#         # image: PIL Image，RGB 顺序
-#         np_img = np.array(image)  # (H, W, 3) [R, G, B]
-#         # 转换为 BGR 顺序
-#         np_img = np_img[..., ::-1]  # [B, G, R]
-#         h, w, _ = np_img.shape
-#         label_img = np.zeros((h, w), dtype=np.int64)
-#         # 根据 colormap 进行匹配
-#         for cls, color in self.color_map.items():
-#             mask = (np_img[:, :, 0] == color[0]) & (np_img[:, :, 1] == color[1]) & (np_img[:, :, 2] == color[2])
-#             label_img[mask] = cls
-#         # 返回 (1, H, W) float tensor
-#         return torch.from_numpy(label_img).unsqueeze(0).float()
 
 # --------------------------
 # 自定义转换：这里不再转换为类别标签，而是直接转换为灰度图的 Tensor
@@ -84,49 +35,6 @@ class ConvertToGray(object):
         # 转换为灰度图（单通道）
         image = image.convert("L")
         return transforms.ToTensor()(image)
-
-# --------------------------
-# 预处理函数（不使用预处理时可忽略）
-# --------------------------
-def convert_image_to_label(np_img, color_map):
-    """
-    将 BGR 顺序的 numpy 图像转换为类别索引标签（预处理时使用）
-    """
-    h, w, _ = np_img.shape
-    label_img = np.zeros((h, w), dtype=np.int64)
-    for cls, color in color_map.items():
-        mask = (np_img[:, :, 0] == color[0]) & (np_img[:, :, 1] == color[1]) & (np_img[:, :, 2] == color[2])
-        label_img[mask] = cls
-    return label_img
-
-def preprocess_all_images(image_dir, save_dir, color_map):
-    """
-    遍历 image_dir 下所有图像（现在不是所有），转换为标签（类别索引），保存为 .npz 文件至 save_dir
-    （预处理流程，不使用时可忽略）
-    """
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-
-    # exts = ['.png', '.jpg', '.jpeg', '.bmp']
-    # image_files = [f for f in os.listdir(image_dir) if os.path.splitext(f)[1].lower() in exts]
-    # 仅匹配 _pred.png 文件
-    image_files = [f for f in os.listdir(image_dir) if f.lower().endswith('_pred.png')]
-    print(f"发现 {len(image_files)} 张图像，开始预处理...")
-    for filename in tqdm(image_files):
-        image_path = os.path.join(image_dir, filename)
-        with Image.open(image_path) as img:
-            img = img.convert("RGB")
-            np_img = np.array(img)  # [R, G, B]
-            # 转换为 BGR 顺序，colormap 按 BGR 定义
-            np_img = np_img[..., ::-1]
-            label_img = convert_image_to_label(np_img, color_map)
-            # 转换数据类型为 uint8，减少存储空间（没转换前相当大，转换后训练起来又很慢）
-            label_img = label_img.astype(np.uint8)
-        # 保存文件名：保持原图文件名（去掉扩展名）+ .npz
-        base_name = os.path.splitext(filename)[0]
-        save_path = os.path.join(save_dir, f"{base_name}.npz")
-        np.savez_compressed(save_path, label=label_img)
-    print("预处理完成！")
 
 # --------------------------
 # 1. 数据库配置与数据读取
@@ -145,7 +53,7 @@ def load_pair_list(db_config):
     try:
         conn = pymysql.connect(**db_config)
         cursor = conn.cursor()
-        query = "SELECT left_id, right_id, winner FROM pp2 WHERE category = 'safety'"
+        query = "SELECT left_id, right_id, winner FROM pp2 WHERE category = 'wealthy'"
         cursor.execute(query)
         return [(p[0], p[1], p[2]) for p in cursor.fetchall()]
     except pymysql.MySQLError as e:
@@ -169,7 +77,7 @@ def create_scores_table(db_config):
         conn = pymysql.connect(**db_config)
         cursor = conn.cursor()
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS image_scores_safety_S (
+            CREATE TABLE IF NOT EXISTS image_scores_wealthy_S (
                 image_id VARCHAR(255),
                 score FLOAT,
                 split VARCHAR(10),
@@ -187,63 +95,13 @@ def create_scores_table(db_config):
 
 def insert_scores(db_config, scores, split, conn, cursor, batch_size=1000):
     try:
-        query = "INSERT INTO image_scores_safety_S VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE score=VALUES(score)"
+        query = "INSERT INTO image_scores_wealthy_S VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE score=VALUES(score)"
         items = [(str(k), v, split) for k, v in scores.items()]
         for i in range(0, len(items), batch_size):
             cursor.executemany(query, items[i:i+batch_size])
             conn.commit()
     except pymysql.MySQLError as e:
         print(f"数据库错误: {e.args}")
-# # --------------------------
-# # 2. 智能缓存数据集
-# # --------------------------
-# class SegmentationPairDataset(Dataset):
-#     def __init__(self, pair_list, transform=None):
-#         self.pair_list = pair_list
-#         self.transform = transform
-#         # 标签映射： "left" 表示左边获胜，转换为 1；"right" 表示右边获胜，转换为 -1；"equal" 转换为 0
-#         self.label_map = {"left": 1, "right": -1, "equal": 0}
-#         self.cache = OrderedDict()
-#         self.max_cache_size = 800  # 根据内存容量调整
-
-#     def __len__(self):
-#         return len(self.pair_list)
-
-#     def __getitem__(self, idx):
-#         if idx in self.cache:
-#             self.cache.move_to_end(idx)
-#             return self.cache[idx]
-
-#         left_id, right_id, winner = self.pair_list[idx]
-#         if use_preprocessed:
-#             # 预处理数据加载：直接加载 .npz 文件
-#             left_label_path = os.path.join(label_dir, f"{left_id}_pred.npz")
-#             right_label_path = os.path.join(label_dir, f"{right_id}_pred.npz")
-#             if not (os.path.exists(left_label_path) and os.path.exists(right_label_path)):
-#                 raise FileNotFoundError(f"缺失预处理文件: {left_label_path} 或 {right_label_path}")
-#             # 加载 .npz 文件，并提取 'label' 数组；确保形状为 (H, W)，再 unsqueeze 为 (1, H, W)
-#             np_left = np.load(left_label_path)['label']
-#             np_right = np.load(right_label_path)['label']
-#             img_left = torch.from_numpy(np_left).unsqueeze(0).float() if np_left.ndim == 2 else torch.from_numpy(np_left).float()
-#             img_right = torch.from_numpy(np_right).unsqueeze(0).float() if np_right.ndim == 2 else torch.from_numpy(np_right).float()
-#         else:
-#             # 未预处理时，加载原始图像并转换
-#             left_path = get_image_path(left_id)
-#             right_path = get_image_path(right_id)
-#             if not all(os.path.exists(p) for p in [left_path, right_path]):
-#                 raise FileNotFoundError(f"缺失文件: {left_path} 或 {right_path}")
-#             img_left = Image.open(left_path).convert("RGB")
-#             img_right = Image.open(right_path).convert("RGB")
-#             if self.transform:
-#                 img_left = self.transform(img_left)
-#                 img_right = self.transform(img_right)
-
-#         label = torch.tensor(self.label_map[winner], dtype=torch.float)
-
-#         if len(self.cache) >= self.max_cache_size:
-#             self.cache.pop(next(iter(self.cache)))  # 删除最早插入的缓存
-#         self.cache[idx] = (img_left, img_right, label, left_id, right_id)
-#         return self.cache[idx]
 
 # --------------------------
 # 2. 数据集：直接读取灰度图像
@@ -375,7 +233,7 @@ if __name__ == '__main__':
     #         preprocess_all_images(image_dir, label_dir, color_map)
 
     # 日志与模型保存目录配置
-    log_dir = "walk/deeplabv3-master/training_logs/siamese_safety"
+    log_dir = "walk/deeplabv3-master/training_logs/siamese_wealthy"
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, f"training_log_{datetime.now().strftime('%Y%m%d%H%M')}.csv")
     model_dir = os.path.join(log_dir, "saved_models")
@@ -402,11 +260,7 @@ if __name__ == '__main__':
 
     # 初始化硬件配置
     device, batch_size, num_workers, grad_accum = hardware_config()
-    # # 若不使用预处理，可使用转换（此处仅作备用，不会在预处理模式下使用）
-    # transform = transforms.Compose([
-    #     transforms.Resize((128, 128)),
-    #     ConvertToLabel(color_map)
-    # ])
+    
     # 使用转换：调整尺寸并转换为灰度图（单通道）
     transform = transforms.Compose([
         transforms.Resize((128, 128)),
@@ -467,7 +321,7 @@ if __name__ == '__main__':
 
     # 训练循环
     total_start = time.time()
-    for epoch in range(10):
+    for epoch in range(12):
         epoch_start = time.time()
         model.train()
         optimizer.zero_grad()
@@ -564,7 +418,7 @@ if __name__ == '__main__':
             ])
 
         epoch_time = time.time() - epoch_start
-        print(f"Epoch {epoch+1}/10 | Train Loss: {running_loss/len(train_loader):.4f} | Val Loss: {avg_val_loss:.4f} | Train Acc: {train_acc:.2%} | Val Acc: {val_acc:.2%} | Time: {timedelta(seconds=int(epoch_time))}")
+        print(f"Epoch {epoch+1}/12 | Train Loss: {running_loss/len(train_loader):.4f} | Val Loss: {avg_val_loss:.4f} | Train Acc: {train_acc:.2%} | Val Acc: {val_acc:.2%} | Time: {timedelta(seconds=int(epoch_time))}")
 
         scheduler.step()
 
